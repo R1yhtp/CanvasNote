@@ -1,0 +1,50 @@
+{
+  "name": "canvasnote",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "desktop": "npm run build && electron desktop/main.cjs",
+    "test": "node --import tsx --test tests/core.test.ts tests/workspace.test.ts tests/offline.test.ts && node tests/ui.test.mjs",
+    "package:windows": "npm run build && npm run examples && node scripts/package-windows.mjs",
+    "tauri:dev": "npx @tauri-apps/cli@2 dev",
+    "tauri:build": "npx @tauri-apps/cli@2 build",
+    "examples": "node --import tsx scripts/make-examples.ts",
+    "package:source": "node scripts/package-source.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.12.2",
+    "jszip": "^3.10.1",
+    "konva": "^10.0.0",
+    "lucide-react": "^0.468.0",
+    "pdfjs-dist": "^5.4.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-konva": "^19.2.0",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@electron/get": "^3.1.0",
+    "@napi-rs/canvas": "^1.0.10",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "esbuild": "^0.28.2",
+    "fake-indexeddb": "^6.2.5",
+    "jsdom": "^30.1.2",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.1.0",
+    "vite-plugin-singlefile": "^2.3.0"
+  },
+  "description": "Local canvas notebook for visual notes, study materials, and sketches.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  }
+}

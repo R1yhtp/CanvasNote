@@ -1,0 +1,5 @@
+import {getDocument,GlobalWorkerOptions} from 'pdfjs-dist';
+import worker from 'pdfjs-dist/build/pdf.worker.min.mjs?raw';
+let ready=false;
+export async function loadPDF(file:File){if(file.size>100*1024*1024)throw Error('PDF 超过 100MB');if(!ready){GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([worker],{type:'text/javascript'}));ready=true;}return getDocument({data:new Uint8Array(await file.arrayBuffer()),useSystemFonts:true}).promise;}
+export async function renderPage(pdf:Awaited<ReturnType<typeof loadPDF>>,page:number){const p=await pdf.getPage(page),base=p.getViewport({scale:1}),view=p.getViewport({scale:Math.min(2,3000/Math.max(base.width,base.height))}),canvas=document.createElement('canvas');canvas.width=Math.ceil(view.width);canvas.height=Math.ceil(view.height);await p.render({canvasContext:canvas.getContext('2d')!,canvas,viewport:view}).promise;return new File([await new Promise<Blob>(resolve=>canvas.toBlob(b=>resolve(b!),'image/png'))],`PDF-第${page}页.png`,{type:'image/png'});}

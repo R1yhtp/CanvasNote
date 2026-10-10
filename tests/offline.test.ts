@@ -1,0 +1,17 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import vm from 'node:vm';
+const code=await fs.readFile(new URL('../public/sw.js',import.meta.url),'utf8');
+function environment(){
+  const handlers=new Map<string,(event:any)=>void>(),stores=new Map<string,Map<string,Response>>();let online=true,signin=false;
+  const key=(value:any)=>typeof value==='string'?value:value.url;
+  const network=async(request:any)=>{if(!online)throw Error('offline');const url=key(request),html=url.endsWith('/');const response=new Response(html?(signin?'Sign in':'<title>CanvasNote</title><div id="root"></div>'):'asset',{headers:{'Content-Type':html?'text/html':'image/png'}});if(signin&&html)Object.defineProperty(response,'redirected',{value:true});return response;};
+  const caches={open:async(name:string)=>{let store=stores.get(name);if(!store){store=new Map();stores.set(name,store);}return {addAll:async(urls:string[])=>{for(const url of urls)store!.set(url,await network(url));},put:async(url:any,response:Response)=>{store!.set(key(url),response.clone());}};},keys:async()=>[...stores.keys()],delete:async(name:string)=>stores.delete(name),match:async(url:any)=>{for(const store of stores.values()){const response=store.get(key(url));if(response)return response.clone();}}};
+  vm.runInNewContext(code,{self:{location:new URL('https://canvasnote.test/sw.js'),addEventListener:(name:string,fn:any)=>handlers.set(name,fn),clients:{claim:async()=>{}}},URL,Response,caches,fetch:network});
+  return {handlers,stores,caches,setOnline:(v:boolean)=>online=v,setSignin:(v:boolean)=>signin=v,async lifecycle(name:string){let promise:Promise<unknown>;handlers.get(name)!({waitUntil:(p:Promise<unknown>)=>promise=p});await promise!;},async navigate(){let response:Promise<Response>;const waiting:Promise<unknown>[]=[];handlers.get('fetch')!({request:{url:'https://canvasnote.test/',method:'GET',mode:'navigate'},respondWith:(p:Promise<Response>)=>response=p,waitUntil:(p:Promise<unknown>)=>waiting.push(p)});const result=await response!;await Promise.all(waiting);return result;}};
+}
+test('offline application navigation returns the previously cached editor',async()=>{const e=environment();await e.lifecycle('install');e.setOnline(false);const response=await e.navigate();assert.equal(response.status,200);assert.ok((await response.text()).includes('CanvasNote'));});
+test('offline navigation without a cache reports that the first launch needs a connection',async()=>{const e=environment();e.setOnline(false);assert.equal((await e.navigate()).status,503);});
+test('redirected sign-in pages cannot replace the offline editor or install a new shell',async()=>{const e=environment();e.setSignin(true);await assert.rejects(e.lifecycle('install'));assert.equal(await e.caches.match('https://canvasnote.test/'),undefined);e.setSignin(false);await e.lifecycle('install');e.setSignin(true);await e.navigate();e.setOnline(false);assert.ok((await(await e.navigate()).text()).includes('CanvasNote'));});
+test('upgrades remove old CanvasNote caches while retaining unrelated cached applications',async()=>{const e=environment();await e.caches.open('canvasnote-old');await e.caches.open('unrelated-application');await e.lifecycle('install');await e.lifecycle('activate');assert.equal(e.stores.has('canvasnote-old'),false);assert.equal(e.stores.has('unrelated-application'),true);assert.equal(e.stores.has('canvasnote-public-0.1.0'),true);});
